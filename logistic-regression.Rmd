@@ -1,0 +1,346 @@
+---
+title: "Homework 5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,eval=T,message=F,warning=F,fig.align='center')
+```
+```{r}
+library(ggplot2)
+```
+
+
+Each part of each question will be 5pts, there are 10 parts, so 50pts total. <br/>
+
+
+## 1. Interpreting logistic regression <small>15pts</small>
+
+Suppose we collect data for a group of students in a statistics class with independent variables $X_{1}=\text{hours studied}$, $X_{2}=\text{GPA}$, and binary response variable
+$$
+Y= \begin{cases} 1 &\mbox{ if student received an A} \\
+  0 &\mbox{ otherwise. }
+  \end{cases}
+$$
+Suppose that we fit a logistic regression model to the data, predicting $Y$ from $X_1$ and $X_2$ (and an intercept term) and produce estimated coefficients $\hat{\beta}_{0}=-6, \hat{\beta}_{1}=0.05, \hat{\beta}_{2}=1$.
+
+### Part a) Logistic regression and probability
+
+According to our fitted model, what is the probability that a student receives an A if they study for $40$ hours and have a GPA of $3.5$?
+
+```{r}
+z = -6 + 0.05*40 + 1*3.5
+1 / (1+exp(-z))
+```
+
+### Part b) Interpreting coefficients
+According to our fitted model, an additional hour spent studying is associated with *how much* of an increase in the log odds of receiving an A?
+
+```{r}
+b1 = 0.05
+b1 # because you multiply hour spent studying by beta1
+```
+
+### Part c) "Inverting" logistic regression probabilities
+According to our fitted model, how many hours would the student in Part (a) need to study to have a $50\%$ chance of getting an A in the class?
+That is, keeping GPA fixed at $3.5$, how many hours of study are needed so that the probability of an A is $50\%$?
+If you aren't up for the math, feel free to find an approximate solution via guess-and-check in R.
+
+***
+50 hours, via guess and check in R.
+
+***
+
+```{r}
+
+z = -6 + 0.05*50 + 1*3.5
+1 / (1+exp(-z))
+
+```
+
+
+<br/>
+
+## 2. `mtcars` one more time <small>10pts</small>
+
+Let's take yet another look at the `mtcars` data set.
+Recall that the columns of this data set are:
+```{r}
+names(mtcars)
+```
+
+The `am` column encodes whether a car is automatic (`0`) or manual (`1`).
+Let's build a model to predict whether a car is manual or automatic.
+
+### Part a) Fitting/interpreting a model
+
+Fit a logistic regression model to regress `am` against the `drat` and `disp` (and an intercept term).
+
+```{r}
+lg_cars = glm(am ~ 1 + drat + disp, mtcars, family = binomial)
+summary(lg_cars)
+```
+
+Which coefficients (if any) are statistically significantly different from zero at the $\alpha=0.05$ level?
+Interpret the meaning of the estimated coefficient(s) that is/are statistically significantly different from zero.
+
+***
+The p-value for drat is 0.0315 which is underneath the threshold of significance of alpha = 0.05, meaning that drat is a significant predictor of the likelihood of a car being automatic.
+***
+
+### Part b) Modifying/assessing the model
+
+Choose one of the statistically significant predictors above and re-fit a model using *only* that variable (and an intercept) to predict `am`.
+We'll see how to compare the quality of this model to the one from Part (a) when we talk about cross-validation (CV) in upcoming lectures.
+For now, compare the estimated coefficient of this variable in both models.
+Is there a sizable difference?
+
+Does anything else notable change about the model?
+- The pvalue of 'drat' is significantly lower and under the treshold of alpha = 0.05.
+
+```{r}
+disp_cars = glm(am ~ 1 + drat, mtcars, family = binomial)
+summary(disp_cars)
+```
+
+Choose one of the statistically significant predictors above.
+Use `ggplot2` to plot `am` as a function of this predictor, and overlay a curve describing the logistic regression output when using *only* this predictor to predict `am` (i.e., the model from Part c above).
+
+```{r}
+ggplot(mtcars, aes(x=drat, y=am) ) + geom_point() + geom_smooth(formula='y ~ 1+x', se=FALSE,
+method='glm', method.args=list(family = "binomial") )
+
+```
+
+
+<br/>
+
+## 3. Guided k-fold CV exercise <small>15pts</small>
+
+In this exercise, we will guide you through an exercise where you are asked to use k-fold cross validation to evaluate the performance of several models.
+
+For this exercise we will use the "Swiss Fertility and Socioeconomic Indicators (1888)" dataset from the `datasets` package, which is loaded below. (To view the help page, run `?datasets::swiss` in your console). We will be using `Fertility` as our response variable.
+
+```{r}
+swiss = datasets::swiss
+```
+
+
+### Part a) Understanding/visualizing data
+
+Read the help page and briefly "introduce" this dataset. Specifically, explain where the data comes from, what variables it contains, and why should people care about the dataset.
+
+Produce one or some visualizations of the data. Do your best here to try to use your plots to help your viewer best understand the structure and patterns of this dataset. Choose your plots carefully and briefly explain what each plot tells you about the data.
+***
+The data collected are for 47 French-speaking “provinces” at around the year 1888. A data frame with 47 observations on 6 variables, each of which is in percent. 
+Fertility	-  ‘common standardized fertility measure’
+Agriculture	- % of males involved in agriculture as occupation
+Examination	- % draftees receiving highest mark on army examination
+Education - % education beyond primary school for draftees.
+Catholic -	% ‘catholic’ (as opposed to ‘protestant’).
+Infant.Mortality - live births who live less than 1 year.
+
+***
+```{r}
+
+ggplot(swiss, aes(y = Examination, x = Education)) + 
+  geom_point() + geom_smooth(se= FALSE) +
+  labs(x = "% Education beyond primary school for draftees", y = "% Draftees receiving highest mark on army examination", 
+       title = "Highest Examinations Marks vs. Education Beyond Primary School")
+
+```
+***
+This graph shows the correlation of education beyond primary school for draftees and the percent of draftees receiving the highest scores.
+***
+
+### Part b) Starting with basic lm
+
+Compare a model with all predictors with no interactions with 2 other models of YOUR choice. Fit all 3 models, show their summary outputs, and briefly comment on which one you think might perform the best when used for future predictions and why.
+
+```{r}
+model1 = lm(Fertility ~ ., data = swiss)
+model2 = lm(Fertility ~ Catholic, data = swiss)
+model3 = lm(Fertility ~ Education, data = swiss)
+summary(model1)
+summary(model2)
+summary(model3)
+```
+***
+
+***The first model has the highest adjusted R^2 score by far (0.671), and the second model with Catholics as the predictor has the lowest (0.1976). Thus, our first model with no interactions is our best fit model for future predictions because it has the highest adjusted R^2.
+
+### Part c) Estimating MSE using CV
+
+Now, we are going to actually estimate the MSE of each model with K-fold cross validation. First we're going to set a seed and import the `caret` package (it should be already installed since it's a prerequisite for many other packages, but if it's not for some reason, you can install it with `install.packages("caret")`)
+
+```{r}
+set.seed(1)
+library(caret)
+```
+
+Next, use the following chunk, which already has `method` set to `lm`, `data` set to the `swiss` data set, and validation method set to use 5-fold CV, to estimate the MSE of each of your models. All you need to do is add in a formula for your model and repeat for all 3 models you have.
+
+```{r,error=T}
+modelA = train(Fertility ~. , method="lm", data=swiss, trControl = trainControl(method="cv", number=5))
+modelB = train(Fertility ~ Catholic, method="lm", data=swiss, trControl = trainControl(method="cv", number=5))
+modelC = train(Fertility ~ Education, method="lm", data=swiss, trControl = trainControl(method="cv", number=5))
+print(modelA)
+print(modelB)
+print(modelC)
+```
+
+Once you have your models fitted, use `print( )` to show the summary statistics for each model. Report the RMSE for each model, which is the square root of the MSE. Which of these models performs the best? Which performed the worst? Do these results agree with your expectations?
+***
+The first model with no interactions has the lowest RMSE, which indicates the model perfroms the best. The second model, with predictor "Catholic", performs the worst because it is has the highest RMSE. The result of the Catholic predictor does not surprise me because it also had a lower a adjusted R^2 than the other models. These results agree with my expectations.
+***
+Bonus: repeat the above step, using `trControl = trainControl(method="repeatedcv", number=5, repeats=3)` which repeats each CV analysis 3times and averages out each run to get a more stable estimate of the MSE. Compare the results with the unrepeated MSE estimates. How do they compare?
+```{r}
+model1A = train(Fertility ~. , method="lm", data=swiss, trControl = trainControl(method="repeatedcv", number=5, repeats=3))
+model1B = train(Fertility ~ Catholic, method="lm", data=swiss, trControl = trainControl(method="repeatedcv", number=5, repeats=3))
+model1C = train(Fertility ~ Education, method="lm", data=swiss, trControl = trainControl(method="repeatedcv", number=5, repeats=3))
+print(model1A)
+print(model1B)
+print(model1C)
+
+```
+
+***
+When I run the repeated cv analysis, I get very similar RMSE.
+***
+
+<br/>
+
+## 5. Variable selection with `Carseats` <small>10pts</small>
+
+This question should be answered using the `Carseats` dataset from the `ISLR` package. If you do not have it, make sure to install it.
+
+```{r}
+library(ISLR)
+
+Carseats = ISLR::Carseats
+
+# you should read the help page by running ?Carseats
+# we can also peek at the data frame before using it
+str(Carseats)
+head(Carseats)
+```
+
+
+### Part a) Visualizing/fitting
+
+First, make some visualizations of the dataset to help set the stage for the rest of the analysis. Try to pick plots to show that are interesting informative.
+
+```{r}
+ggplot(Carseats, aes(x = Price)) + geom_bar() 
+ggplot(Carseats, aes(x = Price, y = Sales)) + geom_point() + geom_smooth(se =FALSE)
+```
+
+Using some variable selection method (stepwise, LASSO, ridge, or just manually comparing a preselected of models using their MSEs), choose a set of predictors to use to predict `Sales`. Try to find the best model that you can that explains the data well and doesn't have useless predictors. Explain the choices you made and show the final model.
+- I created a forward stepwise function to determine which model will preform the best while using all predictors before it. Model6 is the point where the predictor has the lowest MSE with the fewest number of predictors before (simplest). This is the Price predictor.
+```{r, warning=FALSE}
+kfoldCV <- function(K, formulas, dataset){
+  m <- length(formulas)
+  
+  idx <- sample(1:nrow(dataset))
+  folds <- split(idx, as.factor(1:K))
+
+  results <- data.frame(fold = rep(1:K, rep(m,K)),
+                        model = rep(1:m, K),
+                        error = 0)    
+  for(k in 1:K){
+    #split the data into training and testing sets
+    training <- dataset[-folds[[k]],]
+    testing <- dataset[folds[[k]],]
+    #go through each model and estimate MSE
+    for(f in 1:m){
+      fit <- lm(formula = formulas[[f]], data=training)
+      results[results$fold == k & results$model == f, "error"] <- mean((predict(fit, newdata=testing)-testing$Sales)^2)
+    }
+  }
+
+  aggregated <- aggregate(error~model, data=results, FUN="mean")
+  plot(error ~ model, type="b", data=aggregated, ylab="MSE")
+  print(which(aggregated$error == min(aggregated$error)))
+  print(formulas[[which(aggregated$error == min(aggregated$error))]])
+  return(aggregated)
+}
+
+```
+
+
+```{r}
+M <- list()
+
+predictors = c("1",names(Carseats)[2:11])
+used = 1
+
+M0 <- lm(reformulate(predictors[used], "Sales"), data=Carseats)
+RSS <- anova(M0)["Residuals","Sum Sq"]
+formulas <- list()
+
+for(model in 1:10){
+  RSS.best <- RSS
+  for(try in predictors[-used]){
+    M <- lm(reformulate(c(predictors[used],try), "Sales"), data=Carseats)
+    RSS.new <- anova(M)["Residuals","Sum Sq"]
+    if(RSS.new <= RSS.best){
+      new.pred <- try
+      RSS.best <- RSS.new
+    }
+  }
+  formulas[[model]] <- reformulate(c(predictors[used],new.pred), "Sales")
+  M[[model]] <- lm(formulas[[model]], data=Carseats) 
+  RSS <- anova(M[[model]])["Residuals","Sum Sq"]
+  print(paste("adding", new.pred, "; RSS = ", RSS))
+  used <- c(used, which(predictors==new.pred))
+}
+kfoldCV(4, formulas, Carseats)
+```
+
+
+### Part b) Interpreting/assessing model
+
+According to your chosen model, Which predictors appear to be the most important or significant in predicting sales? Provide an interpretation of each coefficient in your model. Be careful: some of the variables in the model are qualitative!
+
+```{r}
+M
+```
+***
+In Model with all predictors:
+    (Intercept): 5.6606231
+        This is the expected value (intercept) of Sales when all other predictors are zero. 
+    ShelveLocGood: 4.8501827
+        This coefficient suggests that being in a 'Good' shelf location is associated with an average increase of approximately 4.84  in sales.
+    ShelveLocMedium: 1.9567148
+        Similar to ShelveLocGood, this indicates that a 'Medium' shelf location is associated with an increase of approximately 1.95  in sales compared to the base category.
+    Price: -0.0953579
+        This indicates that for each unit increase in Price, there is an average decrease of about 0.095 in Sales. This suggests a negative relationship between price and sales.
+    CompPrice: 0.0928153
+        This suggests that for each unit increase in CompPrice, sales increase by about 0.093, indicating a positive relationship between the competitor's price and the product's sales.
+    Advertising: 0.1230951
+        Each unit increase in Advertising spending is associated with an average increase of approximately 0.116 in sales, suggesting that more advertising is beneficial for sales.
+    Age: -0.0460452
+        This coefficient indicates that for each year increase in Age, sales decrease by about 0.046, suggesting that products targeted at younger audiences might have higher sales.
+    Income: 0.0158028
+        This implies that for each unit increase in Income, sales increase by approximately 0.016, indicating that sales tend to be better in areas with higher income levels.
+    USYes: -0.1840928
+        This coefficient implies a negative relationship on sales and stores in the US. It is the greatest negative relationship out of all the predictors.
+    Education: -0.0211018 
+        This indicates a negative relationship of the education level in relationship to sales. The more the education increase by each unit, the sales decrease by about 0.021.
+    UrbanYes: 0.1228864 
+        If the store is located in an urban location, there is a positive increase on sales of about 0.123 units per Urban store.
+    Population:0.0002079
+        This slope is so small that it barely plays any significance in any increase in sale per unit of population.
+        
+To conclude the most important and significant predictors come from ShelveLocGood, ShelveLocMedium, and then Advertising and UrbanYes are next up but less significant than those two, and rh.
+***
+ 
+Estimate the out of sample MSE of your model and check any assumptions you made during your model fitting process. Discuss any potential model violations. How satisfied are you with your final model?
+```{r}
+mean(summary(M)$residuals^2)
+```
+***
+The out of sample MSE of 1.007 suggests my model has a moderate to high level of prediction accuracy. There is a potential model violation of heteroscedasticity. Meaning the variance of the errors changes with the level of the predictors, which can lead to inefficient estimates and issues with hypothesis testing.
+***
+
+
