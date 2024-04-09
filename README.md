@@ -1,0 +1,8 @@
+Sports has always been a major role in my life. From watching or playing, I've always been interested in any sort of game, but I never thought of sports as a business, or a possible job because it seemed impossible to enjoy a job so much. However, the older I've gotten, I've realized more how big of an industry sports organizations are and how much money they generate. With this interest, I was curious how much revenue one specific sports team may make on a game and what drives these rates. I decided to weed this down to a specific sport and economic perspective. Being from Boston, a major sports city, I wanted to know how other organizations fan bases correlate to their prospective team. Do they care about them only when they're winning? Do they go to games even when they're bad? I gathered data on NBA teams and their attendance rates for each season, since the year of 2017, to find out how a winning percentage affects the attendance rate of a team.
+
+The attendance data is from ESPN and the game result data is from Basketball Reference, I then selected variables necessary, such as Attendance Percentage and Wins. COVID-19 impacts the result greatly, so I decided to exclude that year from my analysis. 
+
+Finally, I concluded that there is not an obvious relationship between winning rate and attendance rate. Other factors like franchises and superstar effects need to be considered for further research.
+
+- Intended questions: 
+    - Does the win percentage of a team affect their attendance rate within the same year? Can a linear regression model predict the relationship between these two variables appropriately? 
